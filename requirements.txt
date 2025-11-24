@@ -1,0 +1,2 @@
+# 의존성 설치
+# ex) YOLOE, OpenCV 등등
