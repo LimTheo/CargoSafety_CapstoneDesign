@@ -27,6 +27,28 @@ def draw_histogram_to_image(data_list, mean_val, std_val, height):
     plot_img_resized = cv2.resize(plot_img, (int(w_plot * scale), height))
     return plot_img_resized
 
+# 기울기 분석 함수
+def analyze_tilt_fast(roi_img, tilt_threshold=10):
+    gray = cv2.cvtColor(roi_img, cv2.COLOR_BGR2GRAY)
+    _, thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_OTSU)
+    cnts, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+    if len(cnts) == 0:
+        return "NORMAL", (0, 255, 0), 0.0
+
+    cnt = max(cnts, key=cv2.contourArea)
+    rect = cv2.minAreaRect(cnt)
+    angle = abs(rect[-1])
+
+    # angle normalization
+    if angle > 45:
+        angle = 90 - angle
+
+    if angle > tilt_threshold:
+        return "TILTED", (0, 0, 255), angle
+
+    return "NORMAL", (0, 255, 0), angle
+
 def detect_pallet_tilt_with_graph(image_input, mean_threshold=3.0, std_threshold=2.0):
     """
     이미지 내 수직선을 검출하고, 각도 통계(평균, 표준편차)와 히스토그램을 시각화합니다.

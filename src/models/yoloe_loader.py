@@ -1,6 +1,10 @@
+import os
 from ultralytics import YOLOE
 
-NAMES = [
+# YOLOE 모델 경로
+MODEL_PATH = "/home/pi/Desktop/CargoSafety_CapstoneDesign-main/yoloe-v8s-seg.pt"
+
+names = [
     "cardboard_box_front", "cardboard_box_diagonal", "cardboard_box_tilted",
     "cardboard_box_heavily_tilted", "cardboard_box_stacked", "cardboard_box_collapsed",
     "cardboard_box_damaged",
@@ -13,7 +17,12 @@ NAMES = [
     "other_cargo"
 ]
 
-def load_yoloe_model(model_path="yoloe-v8l-seg.pt", device="cpu"):
-    model = YOLOE(model_path).to(device)
-    model.set_classes(NAMES, model.get_text_pe(NAMES))
+# 모델 로드 함수
+def load_yoloe_model():
+    print(f"Loading YOLOE Model: {MODEL_PATH}")
+
+    model = YOLOE(MODEL_PATH)
+    model.set_classes(names, model.get_text_pe(names))
+
+    print("YOLOE model loaded.")
     return model
