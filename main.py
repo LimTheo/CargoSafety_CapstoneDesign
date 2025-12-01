@@ -6,6 +6,13 @@ from picamera2 import Picamera2
 
 
 
+# YOLOE 및 기능 모듈 임포트
+from src.models.yoloe_loader import load_yoloe_model
+from src.common.camera_input import init_camera, get_frame
+from src.detection.object_detection import run_inference
+from src.tilt.tilt_detection import analyze_tilt_fast
+from src.common.visualization import draw_box, draw_label, show_frame
+
 # 공유 자원 및 조건 변수 생성
 current_state = "STOPPED" # 상태 저장 변수
 condition = threading.Condition() # Condition 객체 생성
@@ -33,6 +40,45 @@ def car_stopped_task():
         # --- [실제 작업 영역] ---
         print("car stopped: detecting tilt...")
         td.detect_pallet_tilt() 
+
+
+# YOLOE + Tilt 분석
+def run_yolo_tilt():
+    model = load_yoloe_model()
+    picam2 = init_camera()
+
+    print("Starting YOLOE + Tilt Analyzer... Press 'q' to exit.")
+
+    frame_count = 0
+    last_result = None
+
+    while True:
+        frame = get_frame(picam2)
+        frame_count += 1
+
+        result = run_inference(model, frame, frame_count)
+
+        if result:
+            for box, cls in zip(result.boxes.xyxy, result.boxes.cls):
+                x1, y1, x2, y2 = map(int, box)
+                crop = frame[y1:y2, x1:x2]
+
+                if crop.size == 0:
+                    continue
+
+                status, color, angle = analyze_tilt_fast(crop)
+                label = f"{cls} | {status} {angle:.1f}°"
+
+                draw_box(frame, x1, y1, x2, y2, color)
+                draw_label(frame, label, x1, max(10, y1 - 10), color)
+
+        key = show_frame(frame)
+
+        if key == ord("q"):
+            break
+
+    print("Exiting.")
+
 
 if __name__ == "__main__":
     
