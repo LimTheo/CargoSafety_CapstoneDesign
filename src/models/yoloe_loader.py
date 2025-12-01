@@ -2,7 +2,7 @@ import os
 from ultralytics import YOLOE
 
 # YOLOE 모델 경로
-MODEL_PATH = "/home/pi/Desktop/CargoSafety_CapstoneDesign/yoloe-v8s-seg.pt"
+MODEL_PATH = "/home/devjang/Cap/CargoSafety_CapstoneDesign/yoloe-v8s-seg.pt"
 
 names = [
     "cardboard_box_front", "cardboard_box_diagonal", "cardboard_box_tilted",

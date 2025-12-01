@@ -31,6 +31,7 @@ def car_moved_task():
 
 
 
+
 def car_stopped_task():
     """차가 멈췄을 때 실행되는 태스크"""
     while True:
@@ -136,5 +137,5 @@ if __name__ == "__main__":
             last_state = new_state
         
         # 메인 루프의 과도한 CPU 점유를 막기 위한 최소한의 sleep
-        # (이건 스레드 제어용이 아니라 상태 체크 주기용입니다)
         time.sleep(0.1)
+        # (이건 스레드 제어용이 아니라 상태 체크 주기용입니다)
