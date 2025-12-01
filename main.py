@@ -39,7 +39,23 @@ def car_stopped_task():
 
         # --- [실제 작업 영역] ---
         print("car stopped: detecting tilt...")
-        td.detect_pallet_tilt() 
+        result = run_inference(model, frame, frame_count)
+
+        if result:
+            for box, cls in zip(result.boxes.xyxy, result.boxes.cls):
+                x1, y1, x2, y2 = map(int, box)
+                crop = frame[y1:y2, x1:x2]
+
+                if crop.size == 0:
+                    continue
+
+                status, color, angle = analyze_tilt_fast(crop)
+                label = f"{cls} | {status} {angle:.1f}°"
+
+                draw_box(frame, x1, y1, x2, y2, color)
+                draw_label(frame, label, x1, max(10, y1 - 10), color)
+
+        key = show_frame(frame)
 
 
 # YOLOE + Tilt 분석
@@ -89,15 +105,12 @@ if __name__ == "__main__":
     t1.start()
     t2.start()
 
-    picamera2 = Picamera2()
+    picam2 = init_camera()
 
-    config = picamera2.create_video_configuration(
-        main={"size": (1280, 720)},
-        "format":"RGB888"
-    )
+    frame_count = 0
+    last_result = None
 
-    picamera2.configure(config)
-    picamera2.start()
+    
 
 
     last_state = None # 상태 변경 감지용
