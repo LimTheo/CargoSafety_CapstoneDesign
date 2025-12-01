@@ -2,6 +2,9 @@ import src.common
 import src.tilt.tilt_detection as td
 import threading
 import time
+from picamera2 import Picamera2
+
+
 
 # 공유 자원 및 조건 변수 생성
 current_state = "STOPPED" # 상태 저장 변수
@@ -40,11 +43,23 @@ if __name__ == "__main__":
     t1.start()
     t2.start()
 
+    picamera2 = Picamera2()
+
+    config = picamera2.create_video_configuration(
+        main={"size": (1280, 720)},
+        "format":"RGB888"
+    )
+
+    picamera2.configure(config)
+    picamera2.start()
+
+
     last_state = None # 상태 변경 감지용
 
     while True:
         try:
-            car_moving = state_received() 
+            car_moving = (int(time.time()) // 5) % 2 == 0
+            #car_moving = state_received() 
             
         except NameError:
             car_moving = True
