@@ -16,6 +16,7 @@ from src.common.visualization import draw_box, draw_label, show_frame
 # 공유 자원 및 조건 변수 생성
 current_state = "STOPPED" # 상태 저장 변수
 condition = threading.Condition() # Condition 객체 생성
+model = load_yoloe_model()
 
 def car_moved_task():
     """차가 움직일 때 실행되는 태스크"""

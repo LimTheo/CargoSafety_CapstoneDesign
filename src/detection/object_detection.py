@@ -2,7 +2,7 @@ import cv2
 import numpy as np
 from PIL import Image
 
-from src.models.yoloe_loader import load_yoloe_model, NAMES
+from src.models.yoloe_loader import load_yoloe_model, names
 
 CONF_THRESHOLD = 0.25
 SKIP_FRAMES = 10
