@@ -12,13 +12,20 @@ import motion_detector as md # <--- 여기에 BMI160 감지 파일 임포트
 from src.models.yoloe_loader import load_yoloe_model
 from src.common.camera_input import init_camera, get_frame
 from src.detection.object_detection import run_inference
-from src.tilt.tilt_detection import analyze_tilt_fast, analyze_tilt_hough
+from src.tilt.tilt_detection import analyze_tilt_fast
 from src.common.visualization import draw_box, draw_label, show_frame
+
+# pose 및 기능 모듈 임포트
+from src.models.pose_loader import load_pose_model
+from src.person_detection.distance_estimation import load_calibration_data, process_distance_estimation
 
 # 공유 자원 및 조건 변수 생성
 current_state = "STOPPED" # 상태 저장 변수
 condition = threading.Condition() # Condition 객체 생성
 model = load_yoloe_model()
+
+pose_model = load_pose_model()
+homography_matrix = load_calibration_data()
 
 def car_moved_task():
     """차가 움직일 때 실행되는 태스크"""
@@ -30,6 +37,20 @@ def car_moved_task():
         
         # --- [실제 작업 영역] ---
         print("car moved: monitoring...")
+        frame = get_frame(picam2)
+            
+        # 2. 거리 추정 로직 수행 (src/person_detection/distance_estimation.py)
+        result_frame, objects = process_distance_estimation(pose_model, frame, homography_matrix)
+        
+        # 3. 콘솔 로그 (사람 감지 시)
+        if objects:
+            # 간단한 로그 출력
+            dist_str = ", ".join([f"{obj[1]:.1f}m" for obj in objects])
+            print(f"[MOVING] Person Detected: {dist_str}")
+
+        # 4. 화면 출력
+        cv2.imshow("Main System View", result_frame)
+        cv2.waitKey(1)
 
 
 
@@ -57,13 +78,15 @@ def car_stopped_task(picam2):
                 if crop.size == 0:
                     continue
 
-                status, color, angle = analyze_tilt_hough(crop)
+                status, color, angle = analyze_tilt_fast(crop)
                 label = f"{cls} | {status} {angle:.1f}°"
 
                 draw_box(frame, x1, y1, x2, y2, color)
                 draw_label(frame, label, x1, max(10, y1 - 10), color)
 
         key = show_frame(frame)
+
+
 
 if __name__ == "__main__":
     # 센서 초기화는 메인 스레드에서 한 번만 수행
@@ -75,15 +98,6 @@ if __name__ == "__main__":
 
 
     picam2 = init_camera()
-
-    # 👇 Preview 강제 적용
-    # try:
-    #     picam2.start_preview(Preview.OPENCV)
-    # except Exception:
-    #     print("OpenCV preview unavailable, switching to Null")
-    #     picam2.start_preview(Preview.NULL)
-
-    #picam2.start_preview(Preview.NULL)
 
     picam2.start()
 
