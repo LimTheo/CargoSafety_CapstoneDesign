@@ -37,6 +37,10 @@ def draw_label(frame, text, x, y, color):
 
 def show_frame(frame):
     """320x240으로 축소하여 표시"""
+<<<<<<< HEAD
     display_frame = cv2.resize(frame, (640, 480))
+=======
+    display_frame = cv2.resize(frame, (320, 240))
+>>>>>>> 5c679181eb29a809374a90eaf64f4ab305708726
     cv2.imshow("YOLOE + Fast Tilt Analyzer", display_frame)
     return cv2.waitKey(1) & 0xFF
