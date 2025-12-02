@@ -46,26 +46,42 @@ def analyze_tilt_fast(roi_img, tilt_threshold=10):
 
     return "NORMAL", (0, 255, 0), angle
 
-def detect_pallet_tilt_with_graph(image_input, mean_threshold=3.0, std_threshold=2.0):
+def analyze_tilt_hough(roi_img, tilt_threshold=3.0, std_threshold=2.0):
     """
-    이미지 내 수직선을 검출하고, 각도 통계(평균, 표준편차)와 히스토그램을 시각화합니다.
+    기존의 Hough Line 변환 방식을 사용하여 기울기를 정밀하게 분석합니다.
+    최신 코드 포맷에 맞춰 (status, color, angle) 3개의 값을 반환합니다.
     """
-    if isinstance(image_input, str):
-        image = cv2.imread(image_input)
-    elif isinstance(image_input, Image.Image):
-        image = np.array(image_input)
+    
+    # 1. 입력 예외 처리 (반환값 3개 유지)
+    if isinstance(roi_img, str):
+        image = cv2.imread(roi_img)
+    elif isinstance(roi_img, Image.Image):
+        image = np.array(roi_img)
         image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
+    elif isinstance(roi_img, np.ndarray):
+        image = roi_img
     else:
-        return None, "Error: Invalid image input type", 0, 0
+        return "Error: Invalid Input", (0, 0, 0), 0.0
+
     if image is None:
-        return None, "Error: Image not found or could not be loaded", 0, 0
+        return "Error: Image None", (0, 0, 0), 0.0
+
+    # 2. 전처리 (Resize -> Canny)
     target_height = 800
     h, w = image.shape[:2]
+    
+    # 이미지가 너무 작거나 비어있는 경우 방지
+    if h == 0 or w == 0:
+        return "Error: Empty Frame", (0, 0, 0), 0.0
+
     scale = target_height / h
-    image = cv2.resize(image, (int(w * scale), target_height))
-    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    image_resized = cv2.resize(image, (int(w * scale), target_height))
+    
+    gray = cv2.cvtColor(image_resized, cv2.COLOR_BGR2GRAY)
     blur = cv2.GaussianBlur(gray, (5, 5), 0)
     edges = cv2.Canny(blur, 50, 150)
+
+    # 3. 선 검출 (HoughLinesP)
     lines = cv2.HoughLinesP(
         edges,
         rho=1,
@@ -74,52 +90,48 @@ def detect_pallet_tilt_with_graph(image_input, mean_threshold=3.0, std_threshold
         minLineLength=target_height / 10,
         maxLineGap=20
     )
-    output_image = image.copy()
+
     angles = []
-    vertical_lines = []
+    
     if lines is not None:
         for line in lines:
             x1, y1, x2, y2 = line[0]
             dx = float(x2 - x1)
             dy = float(y2 - y1)
+            
+            # 수직에 가까운 선만 추출 (가로선 무시)
             if dy == 0 or abs(dx) > abs(dy):
                 continue
+                
             angle_rad = np.arctan(dx / dy)
-            angle_deg = ceil(np.abs(np.degrees(angle_rad)))
-            if angle_deg > 45:
+            angle_deg = np.degrees(angle_rad) # 절대값 처리 전 각도
+            
+            # 각도 절대값 (기울기 정도)
+            abs_angle = abs(angle_deg)
+            
+            if abs_angle > 45: # 45도 이상은 노이즈로 간주
                 continue
-            vertical_lines.append(line)
-            angles.append(angle_deg)
+                
+            angles.append(abs_angle)
+
+    # 4. 결과 분석 및 반환 (항상 3개 값 반환)
     if not angles:
-        avg_angle = 0.0
-        std_dev_angle = 0.0
-        status = "NORMAL (No lines)"
-        color = (0, 255, 0)
+        # 선이 검출되지 않음 -> 정상으로 간주하거나 별도 처리
+        return "NORMAL (No lines)", (0, 255, 0), 0.0
+
+    avg_angle = np.mean(angles)
+    std_dev_angle = np.std(angles)
+
+    # 논리 판단
+    is_tilted = avg_angle > tilt_threshold
+    is_unstable = std_dev_angle > std_threshold
+
+    if is_tilted:
+        # 기울어짐 (빨강)
+        return "WARNING: TILTED", (0, 0, 255), avg_angle
+    elif is_unstable:
+        # 흔들림/불안정 (주황)
+        return "WARNING: UNSTABLE", (0, 165, 255), avg_angle
     else:
-        angles_np = np.array(angles)
-        avg_angle = np.mean(angles_np)
-        std_dev_angle = np.std(angles_np)
-        is_tilted = avg_angle > mean_threshold
-        is_unstable = std_dev_angle > std_threshold
-        if is_tilted:
-            status = "WARNING: TILTED"
-            color = (0, 0, 255)
-        elif is_unstable:
-            status = "WARNING: UNSTABLE"
-            color = (0, 165, 255)
-        else:
-            status = "NORMAL"
-            color = (0, 255, 0)
-        for line in vertical_lines:
-            x1, y1, x2, y2 = line[0]
-            cv2.line(output_image, (x1, y1), (x2, y2), color, 2, cv2.LINE_AA)
-    cv2.rectangle(output_image, (0, 0), (450, 140), (255, 255, 255), -1)
-    cv2.putText(output_image, f"Status: {status}", (10, 40), cv2.FONT_HERSHEY_SIMPLEX, 0.8, color, 2)
-    cv2.putText(output_image, f"Mean Angle: {avg_angle:.2f} (Th: {mean_threshold})", (10, 80), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (50,50,50), 2)
-    cv2.putText(output_image, f"Std Dev: {std_dev_angle:.2f} (Th: {std_threshold})", (10, 120), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (50,50,50), 2)
-    if angles:
-        hist_img = draw_histogram_to_image(angles, avg_angle, std_dev_angle, target_height)
-        final_result = np.hstack((output_image, hist_img))
-    else:
-        final_result = output_image
-    return final_result, status, avg_angle, std_dev_angle
+        # 정상 (초록)
+        return "NORMAL", (0, 255, 0), avg_angle

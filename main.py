@@ -12,7 +12,7 @@ import motion_detector as md # <--- 여기에 BMI160 감지 파일 임포트
 from src.models.yoloe_loader import load_yoloe_model
 from src.common.camera_input import init_camera, get_frame
 from src.detection.object_detection import run_inference
-from src.tilt.tilt_detection import analyze_tilt_fast
+from src.tilt.tilt_detection import analyze_tilt_fast, analyze_tilt_hough
 from src.common.visualization import draw_box, draw_label, show_frame
 
 # 공유 자원 및 조건 변수 생성
@@ -57,52 +57,13 @@ def car_stopped_task(picam2):
                 if crop.size == 0:
                     continue
 
-                status, color, angle = analyze_tilt_fast(crop)
+                status, color, angle = analyze_tilt_hough(crop)
                 label = f"{cls} | {status} {angle:.1f}°"
 
                 draw_box(frame, x1, y1, x2, y2, color)
                 draw_label(frame, label, x1, max(10, y1 - 10), color)
 
         key = show_frame(frame)
-
-
-# YOLOE + Tilt 분석
-def run_yolo_tilt():
-    model = load_yoloe_model()
-    picam2 = init_camera()
-
-    print("Starting YOLOE + Tilt Analyzer... Press 'q' to exit.")
-
-    frame_count = 0
-    last_result = None
-
-    while True:
-        frame = get_frame(picam2)
-        frame_count += 1
-
-        result = run_inference(model, frame, frame_count)
-
-        if result:
-            for box, cls in zip(result.boxes.xyxy, result.boxes.cls):
-                x1, y1, x2, y2 = map(int, box)
-                crop = frame[y1:y2, x1:x2]
-
-                if crop.size == 0:
-                    continue
-
-                status, color, angle = analyze_tilt_fast(crop)
-                label = f"{cls} | {status} {angle:.1f}°"
-
-                draw_box(frame, x1, y1, x2, y2, color)
-                draw_label(frame, label, x1, max(10, y1 - 10), color)
-
-        key = show_frame(frame)
-
-        if key == ord("q"):
-            break
-
-    print("Exiting.")
-
 
 if __name__ == "__main__":
     # 센서 초기화는 메인 스레드에서 한 번만 수행
