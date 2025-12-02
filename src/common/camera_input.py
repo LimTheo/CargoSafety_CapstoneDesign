@@ -6,7 +6,7 @@ def init_camera():
     """Picamera2 초기화"""
     picam2 = Picamera2()
     config = picam2.create_video_configuration(
-        main={"size": (320, 240), "format": "RGB888"}
+        main={"size": (720, 480), "format": "RGB888"}
     )
     picam2.configure(config)
     picam2.start()

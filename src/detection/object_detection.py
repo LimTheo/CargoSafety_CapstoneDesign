@@ -8,7 +8,7 @@ CONF_THRESHOLD = 0.25
 SKIP_FRAMES = 10
 
 def run_inference(model, frame, frame_count):
-    should_infer = (frame_count % SKIP_FRAMES == 0)
+    should_infer = 1#(frame_count % SKIP_FRAMES == 0)
 
     if not should_infer:
         return None
@@ -58,7 +58,7 @@ def detect_and_crop(frame, conf=0.1, iou=0.5, imgsz=640, area_threshold=10000, p
     dataset = []
     for det, crop in zip(detections.boxes, cropped_images):
         class_id = int(det.cls.cpu().numpy()[0]) if det.cls.numel() > 0 else 0
-        class_name = NAMES[class_id]
+        class_name = names[class_id]
         dataset.append({"image": crop, "label": class_name})
 
     return {

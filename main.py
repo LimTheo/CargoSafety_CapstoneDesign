@@ -2,8 +2,10 @@ import src.common
 import src.tilt.tilt_detection as td
 import threading
 import time
-from picamera2 import Picamera2
-
+from picamera2 import Picamera2, Preview
+# 필요한 경우 BMI160 센서 모듈 임포트
+# [1단계]에서 저장한 파일 이름으로 수정하세요 (예: `motion_detector.py`를 `md`로 임포트)
+import motion_detector as md # <--- 여기에 BMI160 감지 파일 임포트
 
 
 # YOLOE 및 기능 모듈 임포트
@@ -32,7 +34,8 @@ def car_moved_task():
 
 
 
-def car_stopped_task():
+def car_stopped_task(picam2):
+    frame_count = 0
     """차가 멈췄을 때 실행되는 태스크"""
     while True:
         with condition:
@@ -41,6 +44,9 @@ def car_stopped_task():
 
         # --- [실제 작업 영역] ---
         print("car stopped: detecting tilt...")
+
+        frame = get_frame(picam2)
+        frame_count += 1
         result = run_inference(model, frame, frame_count)
 
         if result:
@@ -99,30 +105,45 @@ def run_yolo_tilt():
 
 
 if __name__ == "__main__":
-    
-    # 스레드 생성 및 시작
-    t1 = threading.Thread(target=car_moved_task, daemon=True)
-    t2 = threading.Thread(target=car_stopped_task, daemon=True)
-    
-    t1.start()
-    t2.start()
+    # 센서 초기화는 메인 스레드에서 한 번만 수행
+    try:
+        md.initialize_bmi160()
+    except Exception as e:
+        print(f"센서 초기화에 실패하여 ZUPT 기능 없이 시작합니다: {e}")
+        # 센서 초기화에 실패하면 is_moving을 항상 True로 설정하여 동작 감지 로직을 우회할 수 있습니다.
+
 
     picam2 = init_camera()
 
-    frame_count = 0
-    last_result = None
+    # 👇 Preview 강제 적용
+    # try:
+    #     picam2.start_preview(Preview.OPENCV)
+    # except Exception:
+    #     print("OpenCV preview unavailable, switching to Null")
+    #     picam2.start_preview(Preview.NULL)
 
+    #picam2.start_preview(Preview.NULL)
+
+    picam2.start()
+
+    # 스레드 생성 및 시작
+    t1 = threading.Thread(target=car_moved_task, daemon=True)
+    t2 = threading.Thread(target=car_stopped_task,args=(picam2,), daemon=True)
     
-
+    t1.start()
+    t2.start()
+    
+    last_result = None
 
     last_state = None # 상태 변경 감지용
 
     while True:
         try:
-            car_moving = (int(time.time()) // 5) % 2 == 0
+            car_moving = md.check_motion_state()
             #car_moving = state_received() 
             
         except NameError:
+            # 센서 오류 등으로 함수 호출에 실패하면 '움직임' 상태로 간주 (안전 모드)
             car_moving = True
 
         # 상태 결정
